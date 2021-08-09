@@ -281,7 +281,6 @@ $output .= '  </div>';
             echo "</li>";
             */
 
-
             $output .= '<div class="col-md-6 mt-2 mb-2">' . fn_displayListingItem( get_the_ID(), 'type-one-desktop' ) . '</div>';
 
         endwhile;
