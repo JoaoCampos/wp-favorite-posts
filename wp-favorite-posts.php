@@ -1,10 +1,10 @@
 <?php
 /*
-Plugin Name: WP Favorite Posts
-Plugin URI: https://github.com/hberberoglu/wp-favorite-posts
-Description: Allows users to add favorite posts. This plugin use cookies for saving data so unregistered users can favorite a post. Put <code>&lt;?php wpfp_link(); ?&gt;</code> where ever you want on a single post. Then create a page which includes that text : <code>[wp-favorite-posts]</code> That's it!
+Plugin Name: JC WP Favorite Posts
+Plugin URI: https://github.com/hberberoglu/jc-wp-favorite-posts
+Description: Allows users to add favorite posts. This plugin use cookies for saving data so unregistered users can favorite a post. Put <code>&lt;?php wpfp_link(); ?&gt;</code> where ever you want on a single post. Then create a page which includes that text : <code>[jc-wp-favorite-posts]</code> That's it!
 Version: 1.6.8
-Author: Huseyin Berberoglu
+Author: Huseyin Berberoglu, adapted by João Campos
 Author URI: https://github.com/hberberoglu
 
 */
@@ -28,10 +28,12 @@ Author URI: https://github.com/hberberoglu
 */
 
 define('WPFP_JS_VERSION', "1.6.8");
-define('WPFP_PATH', plugins_url() . '/wp-favorite-posts');
-define('WPFP_META_KEY', "wpfp_favorites");
+define('WPFP_PATH', plugins_url() . '/jc-wp-favorite-posts');
+
+define('JCWPFP_POST_META_KEY', "jcwpfp_favorite_posts");
+
 define('WPFP_USER_OPTION_KEY', "wpfp_useroptions");
-define('WPFP_COOKIE_KEY', "wp-favorite-posts");
+define('WPFP_COOKIE_KEY', "jc-wp-favorite-posts");
 
 // manage default privacy of users favorite post lists by adding this constant to wp-config.php
 if ( !defined( 'WPFP_DEFAULT_PRIVACY_SETTING' ) )
@@ -41,7 +43,7 @@ $ajax_mode = 1;
 
 function wpfp_load_translation() {
     load_plugin_textdomain(
-        "wp-favorite-posts",
+        "jc-wp-favorite-posts",
         false,
         dirname(plugin_basename(__FILE__)).'/lang'
     );
@@ -124,10 +126,10 @@ function wpfp_die_or_go($str) {
 }
 
 function wpfp_add_to_usermeta($post_id) {
-    $wpfp_favorites = wpfp_get_user_meta();
-    if(empty($wpfp_favorites) or !is_array($wpfp_favorites)) $wpfp_favorites = array();
-    $wpfp_favorites[] = $post_id;
-    wpfp_update_user_meta($wpfp_favorites);
+    $jcwpfp_favorite_posts = wpfp_get_user_meta();
+    if(empty($jcwpfp_favorite_posts) or !is_array($jcwpfp_favorite_posts)) $jcwpfp_favorite_posts = array();
+    $jcwpfp_favorite_posts[] = $post_id;
+    wpfp_update_user_meta($jcwpfp_favorite_posts);
     return true;
 }
 
@@ -146,9 +148,10 @@ function wpfp_check_favorited($cid) {
     return false;
 }
 
-function wpfp_link( $return = 0, $action = "", $show_span = 1, $args = array() ) {
+function wpfp_link( $return = 0, $action = "", $show_span = 1, $type="singular", $args = array() ) {
     global $post;
     //print_r($post);
+
     $post_id = &$post->ID;
     extract($args);
     $str = "";
@@ -193,10 +196,14 @@ function wpfp_get_users_favorites($user = "") {
 	        }
 	    endif;
 	endif;
+
+    // var_dump($favorite_post_ids);
+
     return $favorite_post_ids;
 }
 
 function wpfp_list_favorite_posts( $args = array() ) {
+
     $user = isset($_REQUEST['user']) ? $_REQUEST['user'] : "";
     extract($args);
     global $favorite_post_ids;
@@ -208,7 +215,8 @@ function wpfp_list_favorite_posts( $args = array() ) {
         $favorite_post_ids = wpfp_get_users_favorites();
     }
 
-	if ( @file_exists(TEMPLATEPATH.'/wpfp-page-template.php') || @file_exists(STYLESHEETPATH.'/wpfp-page-template.php') ):
+	/*
+    if ( @file_exists(TEMPLATEPATH.'/wpfp-page-template.php') || @file_exists(STYLESHEETPATH.'/wpfp-page-template.php') ):
         if(@file_exists(TEMPLATEPATH.'/wpfp-page-template.php')) :
             include(TEMPLATEPATH.'/wpfp-page-template.php');
         else :
@@ -217,13 +225,100 @@ function wpfp_list_favorite_posts( $args = array() ) {
     else:
         include("wpfp-page-template.php");
     endif;
+    */
+
+    echo jc_wpfp_list_favorites( $favorite_post_ids, $args['title'], $args['post_type'] );
 }
+
+
+
+
+function jc_wpfp_list_favorites(
+        $favorite_post_ids = null,
+        $title = null,
+        $post_type = null
+    ) {
+
+
+/*
+estacao-de-radio
+podcast
+pessoa
+organizacao
+*/
+
+$output = '';
+
+$output .= '<div class="container container-type-one">';
+
+$output .= '  <div class="row">';
+$output .= '    <div class="col-md-12">';
+$output .= '      <h1 class="special-title">' . $title . '</h1>';
+$output .= '    </div>';
+$output .= '  </div>';
+
+
+// var_dump($title);
+// var_dump($post_type);
+
+    if ($favorite_post_ids) {
+        $favorite_post_ids = array_reverse($favorite_post_ids);
+        $post_per_page = wpfp_get_option("post_per_page");
+        $page = intval(get_query_var('paged'));
+
+        $qry = array('post__in' => $favorite_post_ids, 'posts_per_page'=> $post_per_page, 'orderby' => 'post__in', 'paged' => $page);
+        // custom post type support can easily be added with a line of code like below.
+        // $qry['post_type'] = array('podcast', 'estacao-de-radio', 'organizacao', 'pessoa');
+        $qry['post_type'] = array($post_type);
+        query_posts($qry);
+
+        // echo "<ul>";
+        $output .= '<div class="row">';
+        while ( have_posts() ) : the_post();
+            /*
+            echo "<li><a href='".get_permalink()."' title='". get_the_title() ."'>" . get_the_title() . "</a> ";
+            wpfp_remove_favorite_link(get_the_ID());
+            echo "</li>";
+            */
+
+
+            $output .= '<div class="col-md-6 mt-2 mb-2">' . fn_displayListingItem( get_the_ID(), 'type-one-desktop' ) . '</div>';
+
+        endwhile;
+        $output .= '</div>';
+        // echo "</ul>";
+
+        /*
+        echo '<div class="navigation">';
+            if(function_exists('wp_pagenavi')) { wp_pagenavi(); } else { ?>
+            <div class="alignleft"><?php next_posts_link( __( '&larr; Previous Entries', 'buddypress' ) ) ?></div>
+            <div class="alignright"><?php previous_posts_link( __( 'Next Entries &rarr;', 'buddypress' ) ) ?></div>
+            <?php }
+        echo '</div>';
+        */
+
+        wp_reset_query();
+    } else {
+        $wpfp_options = wpfp_get_options();
+        echo "<ul><li>";
+        echo $wpfp_options['favorites_empty'];
+        echo "</li></ul>";
+    }
+
+    wpfp_cookie_warning();
+
+$output .= '</div>'; // container
+    return $output;
+}
+
+
+
 
 function wpfp_list_most_favorited($limit=5) {
     global $wpdb;
     $query = "SELECT post_id, meta_value, post_status FROM $wpdb->postmeta";
     $query .= " LEFT JOIN $wpdb->posts ON post_id=$wpdb->posts.ID";
-    $query .= " WHERE post_status='publish' AND meta_key='".WPFP_META_KEY."' AND meta_value > 0 ORDER BY ROUND(meta_value) DESC LIMIT 0, $limit";
+    $query .= " WHERE post_status='publish' AND meta_key='".JCWPFP_POST_META_KEY."' AND meta_value > 0 ORDER BY ROUND(meta_value) DESC LIMIT 0, $limit";
     $results = $wpdb->get_results($query);
     if ($results) {
         echo "<ul>";
@@ -269,7 +364,7 @@ function wpfp_clear_favorites() {
                 wpfp_update_post_meta($post_id, -1);
             }
         endif;
-        if (!delete_user_meta(wpfp_get_user_id(), WPFP_META_KEY)) {
+        if (!delete_user_meta(wpfp_get_user_id(), JCWPFP_POST_META_KEY)) {
             return false;
         }
     }
@@ -293,8 +388,8 @@ function wpfp_do_remove_favorite($post_id) {
 
 function wpfp_content_filter($content) {
     if (is_page()):
-        if (strpos($content,'{{wp-favorite-posts}}')!== false) {
-            $content = str_replace('{{wp-favorite-posts}}', wpfp_list_favorite_posts(), $content);
+        if (strpos($content,'{{jc-wp-favorite-posts}}')!== false) {
+            $content = str_replace('{{jc-wp-favorite-posts}}', wpfp_list_favorite_posts(), $content);
         }
     endif;
 
@@ -313,15 +408,15 @@ function wpfp_content_filter($content) {
 }
 add_filter('the_content','wpfp_content_filter');
 
-function wpfp_shortcode_func() {
-    wpfp_list_favorite_posts();
+function wpfp_shortcode_func( $atts = [] )  {
+    wpfp_list_favorite_posts($atts);
 }
-add_shortcode('wp-favorite-posts', 'wpfp_shortcode_func');
+add_shortcode('jc-wp-favorite-posts', 'wpfp_shortcode_func');
 
 
 function wpfp_add_js_script() {
 	if (!wpfp_get_option('dont_load_js_file'))
-		wp_enqueue_script( "wp-favorite-posts", WPFP_PATH . "/script.js", array( 'jquery' ), WPFP_JS_VERSION );
+		wp_enqueue_script( "jc-wp-favorite-posts", WPFP_PATH . "/script.js", array( 'jquery' ), WPFP_JS_VERSION );
 }
 add_action('wp_print_scripts', 'wpfp_add_js_script');
 
@@ -356,18 +451,18 @@ function wpfp_init() {
     $wpfp_options['opt_only_registered'] = 0;
     add_option('wpfp_options', $wpfp_options);
 }
-add_action('activate_wp-favorite-posts/wp-favorite-posts.php', 'wpfp_init');
+add_action('activate_jc-wp-favorite-posts/jc-wp-favorite-posts.php', 'wpfp_init');
 
 function wpfp_config() { include('wpfp-admin.php'); }
 
 function wpfp_config_page() {
     if ( function_exists('add_submenu_page') )
-        add_options_page(__('WP Favorite Posts'), __('WP Favorite Posts'), 'manage_options', 'wp-favorite-posts', 'wpfp_config');
+        add_options_page(__('WP Favorite Posts'), __('WP Favorite Posts'), 'manage_options', 'jc-wp-favorite-posts', 'wpfp_config');
 }
 add_action('admin_menu', 'wpfp_config_page');
 
 function wpfp_update_user_meta($arr) {
-    return update_user_meta(wpfp_get_user_id(),WPFP_META_KEY,$arr);
+    return update_user_meta(wpfp_get_user_id(),JCWPFP_POST_META_KEY,$arr);
 }
 
 function wpfp_update_post_meta($post_id, $val) {
@@ -377,11 +472,11 @@ function wpfp_update_post_meta($post_id, $val) {
 	} else {
 		$val = $oldval + $val;
 	}
-    return add_post_meta($post_id, WPFP_META_KEY, $val, true) or update_post_meta($post_id, WPFP_META_KEY, $val);
+    return add_post_meta($post_id, JCWPFP_POST_META_KEY, $val, true) or update_post_meta($post_id, JCWPFP_POST_META_KEY, $val);
 }
 
 function wpfp_delete_post_meta($post_id) {
-    return delete_post_meta($post_id, WPFP_META_KEY);
+    return delete_post_meta($post_id, JCWPFP_POST_META_KEY);
 }
 
 function wpfp_get_cookie() {
@@ -403,21 +498,26 @@ function wpfp_get_user_meta($user = "") {
     if (!empty($user)):
         $userdata = get_user_by( 'login', $user );
         $user_id = $userdata->ID;
-        return get_user_meta($user_id, WPFP_META_KEY, true);
+        // CATCH
+        // var_dump("catch");
+        return get_user_meta($user_id, JCWPFP_POST_META_KEY, true);
     else:
-        return get_user_meta(wpfp_get_user_id(), WPFP_META_KEY, true);
+        // UPA
+        // var_dump("upa");
+        // var_dump( get_user_meta(wpfp_get_user_id(), JCWPFP_POST_META_KEY, true) );
+        return get_user_meta(wpfp_get_user_id(), JCWPFP_POST_META_KEY, true);
     endif;
 }
 
 function wpfp_get_post_meta($post_id) {
-    $val = get_post_meta($post_id, WPFP_META_KEY, true);
+    $val = get_post_meta($post_id, JCWPFP_POST_META_KEY, true);
     if ($val < 0) $val = 0;
     return $val;
 }
 
 function wpfp_set_cookie($post_id, $str) {
     $expire = time()+60*60*24*30;
-    return setcookie("wp-favorite-posts[$post_id]", $str, $expire, "/");
+    return setcookie("jc-wp-favorite-posts[$post_id]", $str, $expire, "/");
 }
 
 function wpfp_is_user_favlist_public($user) {
@@ -447,7 +547,8 @@ function wpfp_remove_favorite_link($post_id) {
         $class = 'wpfp-link remove-parent';
         $link = "<a id='rem_$post_id' class='$class' href='?wpfpaction=remove&amp;page=1&amp;postid=". $post_id ."' title='".wpfp_get_option('rem')."' rel='nofollow'>".wpfp_get_option('rem')."</a>";
         $link = apply_filters( 'wpfp_remove_favorite_link', $link );
-        echo $link;
+        // echo $link;
+        return $link;
     }
 }
 

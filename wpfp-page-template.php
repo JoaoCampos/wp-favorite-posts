@@ -1,5 +1,7 @@
 <?php
     $wpfp_before = "";
+
+
     echo "<div class='wpfp-span'>";
     if (!empty($user)) {
         if (wpfp_is_user_favlist_public($user)) {
@@ -20,7 +22,7 @@
 
         $qry = array('post__in' => $favorite_post_ids, 'posts_per_page'=> $post_per_page, 'orderby' => 'post__in', 'paged' => $page);
         // custom post type support can easily be added with a line of code like below.
-        // $qry['post_type'] = array('post','page');
+        $qry['post_type'] = array('podcast', 'estacao-de-radio', 'organizacao', 'pessoa');
         query_posts($qry);
         
         echo "<ul>";
@@ -46,6 +48,6 @@
         echo "</li></ul>";
     }
 
-    echo '<p>'.wpfp_clear_list_link().'</p>';
+    // echo '<p>'.wpfp_clear_list_link().'</p>';
     echo "</div>";
     wpfp_cookie_warning();
